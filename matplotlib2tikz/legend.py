@@ -3,7 +3,7 @@
 import warnings
 
 import numpy
-
+import matplotlib as mpl
 from . import color as mycol
 
 
@@ -15,9 +15,6 @@ def draw_legend(data, obj):
     for text in obj.texts:
         texts.append('%s' % text.get_text())
         children_alignment.append('%s' % text.get_horizontalalignment())
-
-    cont = 'legend entries={{%s}}' % '},{'.join(texts)
-    data['extra axis options'].add(cont)
 
     # Get the location.
     # http://matplotlib.org/api/legend_api.html
@@ -183,14 +180,49 @@ def draw_legend(data, obj):
             alignment = None
             break
 
-    if alignment:
-        data['extra axis options'].add(
-            'legend cell align={%s}' % alignment
-            )
+    contents = []
+    if 'manual_legend' in data and data['manual_legend']:
 
-    # Write styles to data
-    if legend_style:
-        style = 'legend style={%s}' % ', '.join(legend_style)
-        data['extra axis options'].add(style)
+        cont = 'legend entries={{%s}}' % '},{'.join(texts)
+        data['extra axis options'].add(cont)
 
-    return data
+        if alignment:
+            data['extra axis options'].add(
+                'legend cell align={%s}' % alignment)
+        # Write styles to data
+        if legend_style:
+            style = 'legend style={%s}' % ', '.join(legend_style)
+            data['extra axis options'].add(style)
+    else:
+        contents.append("\\matrix [matrix of nodes,\n")
+        contents.append('inner sep=1pt, row sep=1pt,')
+        malign = 'west'
+        if alignment == 'right':
+            malign = 'east'
+        elif alignment == 'center':
+            malign = 'center'
+        contents.append('cells={anchor=%s},' % malign)
+        if anchor is None:
+            anchor = 'north east'
+        if position is None:
+            position = [1.-pad, 1.-pad]
+
+        contents.append('anchor={%s},' % anchor)
+        if 'coordinates' not in data:
+            data['coordinates'] = []
+        data['coordinates'].append('\\coordinate (legend) at (axis description cs:%.15g,%.15g);\n' % tuple(position))
+
+        contents.append(', '.join(legend_style))
+        contents.append("] at (legend) {\n")
+        handles, labels = obj.get_axes().get_legend_handles_labels()
+        for h, l in zip(handles, labels):
+            if isinstance(h, mpl.container.Container):
+                h = h[0]
+            if 'legend-handles' not in data or h not in data['legend-handles']:
+                print('matplotlib2tikz: Cannot find handle for label ''%s''.' % l)
+                tex_label = "??"
+            else:
+                tex_label = data['legend-handles'][h]
+            contents.append("\\ref{%s} {%s}\\\\\n" % (tex_label, l))
+        contents.append("};\n")
+    return data, contents

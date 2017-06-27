@@ -31,7 +31,9 @@ def get_tikz_code(
         extra_axis_parameters=None,
         extra_tikzpicture_parameters=None,
         dpi=None,
-        show_info=True
+        show_info=True,
+        manual_legend=True,
+        figlabel=''
         ):
     '''Main function. Here, the recursion into the image starts and the
     contents are picked up. The actual file gets written in this routine.
@@ -114,6 +116,8 @@ def get_tikz_code(
     if figure == 'gcf':
         figure = mpl.pyplot.gcf()
     data = {}
+    data['manual-legend'] = manual_legend
+    data['figlabel'] = figlabel
     data['fwidth'] = figurewidth
     data['fheight'] = figureheight
     data['rel data path'] = tex_relative_path_to_data
@@ -260,6 +264,7 @@ def _recurse(data, obj):
     '''Iterates over all children of the current object, gathers the contents
     contributing to the resulting PGFPlots file, and returns those.
     '''
+    legends = []
     content = _ContentManager()
     for child in obj.get_children():
         if isinstance(child, mpl.axes.Axes):
@@ -274,11 +279,25 @@ def _recurse(data, obj):
                 # add extra axis options from children
                 if data['extra axis options']:
                     ax.axis_options.extend(data['extra axis options'])
+
+                manual_legend = 'manual-legend' in data and data['manual-legend']
+
+                leg, cont_leg = None, None
+                if manual_legend:
+                    leg = child.get_legend()
+                    if leg is not None:
+                        data, cont_leg = legend.draw_legend(data, leg)
+
                 # populate content
                 content.extend(
-                        ax.get_begin_code() +
-                        children_content +
-                        [ax.get_end_code(data)], 0)
+                    ax.get_begin_code() +
+                    children_content +
+                    (data['coordinates'] if 'coordinates' in data else []) +
+                    [ax.get_end_code(data)], 0)
+
+                if cont_leg is not None:
+                    content.extend(cont_leg, leg)
+
         elif isinstance(child, mpl.lines.Line2D):
             data, cont = line2d.draw_line2d(data, child)
             content.extend(cont, child.get_zorder())
@@ -310,7 +329,11 @@ def _recurse(data, obj):
             data, cont = qmsh.draw_quadmesh(data, child)
             content.extend(cont, child.get_zorder())
         elif isinstance(child, mpl.legend.Legend):
-            data = legend.draw_legend(data, child)
+            if 'manual-legend' in data and data['manual-legend']:
+                pass
+            else:
+                data, cont = legend.draw_legend(data, child)
+                content.extend(cont, child.get_zorder())
         elif isinstance(
                 child,
                 (

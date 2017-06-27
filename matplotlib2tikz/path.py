@@ -6,7 +6,6 @@ import numpy
 from . import color
 from .axes import _mpl_cmap2pgf_cmap
 
-
 def draw_path(data, path, draw_options=None, simplify=None):
     '''Adds code for drawing an ordinary path in PGFPlots (TikZ).
     '''
@@ -14,7 +13,6 @@ def draw_path(data, path, draw_options=None, simplify=None):
     # only one point and have 0 fill opacity. To not let those clutter the
     # output TeX file, bail out here.
     if len(path.vertices) == 2 and \
-            all(path.vertices[0] == path.vertices[1]) and \
             'fill opacity=0' in draw_options:
         return data, ''
 

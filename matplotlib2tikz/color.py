@@ -9,8 +9,9 @@ def mpl_color2xcolor(data, matplotlib_color):
     '''
     # Convert it to RGBA.
     my_col = numpy.array(mpl.colors.ColorConverter().to_rgba(matplotlib_color))
-
     xcol = None
+    if my_col[-1] == 0.0:
+        return data, 'none', my_col
 
     # RGB values (as taken from xcolor.dtx):
     available_colors = {
