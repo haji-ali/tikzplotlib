@@ -181,8 +181,7 @@ def draw_legend(data, obj):
             break
 
     contents = []
-    if 'manual_legend' in data and data['manual_legend']:
-
+    if 'manual-legend' not in data or not data['manual-legend']:
         cont = 'legend entries={{%s}}' % '},{'.join(texts)
         data['extra axis options'].add(cont)
 

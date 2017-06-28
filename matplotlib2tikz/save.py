@@ -32,7 +32,7 @@ def get_tikz_code(
         extra_tikzpicture_parameters=None,
         dpi=None,
         show_info=True,
-        manual_legend=True,
+        manual_legend=False,
         figlabel=''
         ):
     '''Main function. Here, the recursion into the image starts and the
