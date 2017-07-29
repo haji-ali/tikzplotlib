@@ -31,9 +31,10 @@ def get_legend_object(obj):
 
 
 def add_to_legend(data, content, obj):
-    leg_obj, _ = get_legend_object(obj)
+    leg_obj = get_legend_object(obj)
     if leg_obj is None:
         return
+    leg_obj = leg_obj[0]
     if 'label-id' in data:
         data['label-id'] = data['label-id']+1
     else:
