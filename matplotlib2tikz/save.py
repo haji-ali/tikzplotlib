@@ -264,14 +264,12 @@ def _recurse(data, obj):
     '''Iterates over all children of the current object, gathers the contents
     contributing to the resulting PGFPlots file, and returns those.
     '''
-    legends = []
     content = _ContentManager()
     for child in obj.get_children():
         if isinstance(child, mpl.axes.Axes):
             # Reset 'extra axis parameters' for every new Axes environment.
             data['extra axis options'] = \
                 data['extra axis options [base]'].copy()
-
             ax = axes.Axes(data, child)
             if not ax.is_colorbar:
                 # Run through the child objects, gather the content.

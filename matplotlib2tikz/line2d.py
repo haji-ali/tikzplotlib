@@ -6,18 +6,7 @@ import six
 
 from . import color as mycol
 from . import path as mypath
-
-def get_legend_label_(line):
-    '''Check if line is in legend
-    '''
-
-    label = line.get_label()
-    try:
-        ax = line.axes
-        leg = ax.get_legend()
-        return label in [l.get_label() for l in leg.get_lines()]
-    except AttributeError:
-        return None
+from .legend import get_legend_label, add_to_legend
 
 def draw_line2d(data, obj):
     '''Returns the PGFPlots code for an Line2D environment.
@@ -110,7 +99,7 @@ def draw_line2d(data, obj):
 
     # Check if a line is not in a legend and forget it if so,
     # fixes bug #167:
-    if not get_legend_label_(obj):
+    if not get_legend_label(obj):
         addplot_options.append("forget plot")
 
     # process options
@@ -148,15 +137,7 @@ def draw_line2d(data, obj):
             content.append('%.15g %.15g\n' % (x, y))
     content.append('};\n')
 
-    if get_legend_label_(obj):
-        if 'label-id' in data:
-            data['label-id'] = data['label-id']+1
-        else:
-            data['label-id'] = 0
-            data['legend-handles'] = dict()
-        tex_label = '%s-line%s' % (data['figlabel'], data['label-id'])
-        content.append("\\label{%s}\n" % tex_label)
-        data['legend-handles'][obj] = tex_label
+    add_to_legend(data, content, obj)
 
     return data, content
 

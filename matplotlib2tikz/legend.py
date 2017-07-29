@@ -6,6 +6,27 @@ import numpy
 import matplotlib as mpl
 from . import color as mycol
 
+def get_legend_label(obj):
+    '''Check if object is in legend
+    '''
+    #label = obj.get_label()
+    try:
+        handles, labels = obj.axes.get_legend_handles_labels()
+        return obj in handles
+    except AttributeError:
+        return None
+
+def add_to_legend(data, content, obj):
+    if not get_legend_label(obj):
+        return
+    if 'label-id' in data:
+        data['label-id'] = data['label-id']+1
+    else:
+        data['label-id'] = 0
+        data['legend-handles'] = dict()
+    tex_label = '%s-line%s' % (data['figlabel'], data['label-id'])
+    content.append("\\label{%s}\n" % tex_label)
+    data['legend-handles'][obj] = tex_label
 
 def draw_legend(data, obj):
     '''Adds legend code.

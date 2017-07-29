@@ -5,6 +5,7 @@ import numpy
 
 from . import color
 from .axes import _mpl_cmap2pgf_cmap
+from .legend import get_legend_label, add_to_legend
 
 def draw_path(data, path, draw_options=None, simplify=None):
     '''Adds code for drawing an ordinary path in PGFPlots (TikZ).
@@ -126,6 +127,12 @@ def draw_pathcollection(data, obj):
             draw_options.append('colormap=' + mycolormap)
         else:
             draw_options.append('colormap/' + mycolormap)
+
+    # Check if a line is not in a legend and forget it if so,
+    # fixes bug #167:
+    if not get_legend_label(obj):
+        draw_options.append("forget plot")
+    add_to_legend(data, content, obj)
 
     if len(obj.get_sizes()) == len(dd):
         # See Pgfplots manual, chapter 4.25.
