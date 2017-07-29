@@ -6,7 +6,7 @@ import six
 
 from . import color as mycol
 from . import path as mypath
-from .legend import get_legend_label, add_to_legend
+from .legend import get_legend_object, add_to_legend
 
 def draw_line2d(data, obj):
     '''Returns the PGFPlots code for an Line2D environment.
@@ -99,7 +99,7 @@ def draw_line2d(data, obj):
 
     # Check if a line is not in a legend and forget it if so,
     # fixes bug #167:
-    if not get_legend_label(obj):
+    if get_legend_object(obj) is None:
         addplot_options.append("forget plot")
 
     # process options

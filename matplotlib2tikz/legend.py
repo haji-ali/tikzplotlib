@@ -6,18 +6,33 @@ import numpy
 import matplotlib as mpl
 from . import color as mycol
 
-def get_legend_label(obj):
+
+def _leg_equal_handles(obj, h):
+    if obj == h:
+        return True
+    elif hasattr(h, '__iter__'):
+        return any([_leg_equal_handles(obj, c) for c in h])
+    return False
+
+
+def get_legend_object(obj):
     '''Check if object is in legend
     '''
     #label = obj.get_label()
     try:
         handles, labels = obj.axes.get_legend_handles_labels()
-        return obj in handles
+        for i, h in enumerate(handles):
+            if _leg_equal_handles(obj, h):
+                return h, labels[i]
+        return None
     except AttributeError:
+        raise
         return None
 
+
 def add_to_legend(data, content, obj):
-    if not get_legend_label(obj):
+    leg_obj, _ = get_legend_object(obj)
+    if leg_obj is None:
         return
     if 'label-id' in data:
         data['label-id'] = data['label-id']+1
@@ -26,7 +41,8 @@ def add_to_legend(data, content, obj):
         data['legend-handles'] = dict()
     tex_label = '%s-line%s' % (data['figlabel'], data['label-id'])
     content.append("\\label{%s}\n" % tex_label)
-    data['legend-handles'][obj] = tex_label
+    data['legend-handles'][leg_obj] = tex_label
+
 
 def draw_legend(data, obj):
     '''Adds legend code.
@@ -236,8 +252,8 @@ def draw_legend(data, obj):
         contents.append("] at (legend) {\n")
         handles, labels = obj.get_axes().get_legend_handles_labels()
         for h, l in zip(handles, labels):
-            if isinstance(h, mpl.container.Container):
-                h = h[0]
+            # if isinstance(h, mpl.container.Container):
+            #     h = h[0]
             if 'legend-handles' not in data or h not in data['legend-handles']:
                 print('matplotlib2tikz: Cannot find handle for label ''%s''.' % l)
                 tex_label = "??"
