@@ -23,7 +23,7 @@ def draw_text(data, obj):
         else:  # Create a basic tikz arrow
             arrow_style = []
             if obj.arrowprops is not None:
-                if obj.arrowprops['arrowstyle'] is not None:
+                if obj.arrowprops.get('arrowstyle', None) is not None:
                     if obj.arrowprops['arrowstyle'] in ['-', '->',
                                                         '<-', '<->']:
                         arrow_style.append(obj.arrowprops['arrowstyle'])

@@ -147,7 +147,7 @@ def get_tikz_code(
             else mpl.rcParams['figure.dpi']
 
     # gather the file content
-    data, content = _recurse(data, figure)
+    data, content = _recurse(data, figure, [])
 
     # Check if there is still an open groupplot environment. This occurs if not
     # all of the group plot slots are used.
@@ -260,12 +260,16 @@ class _ContentManager(object):
         return content_out
 
 
-def _recurse(data, obj):
+def _recurse(data, obj, saved_objs):
     '''Iterates over all children of the current object, gathers the contents
     contributing to the resulting PGFPlots file, and returns those.
     '''
     content = _ContentManager()
     for child in obj.get_children():
+        if child in saved_objs:
+            continue
+        saved_objs.append(child)
+
         if isinstance(child, mpl.axes.Axes):
             # Reset 'extra axis parameters' for every new Axes environment.
             data['extra axis options'] = \
@@ -273,7 +277,18 @@ def _recurse(data, obj):
             ax = axes.Axes(data, child)
             if not ax.is_colorbar:
                 # Run through the child objects, gather the content.
-                data, children_content = _recurse(data, child)
+
+                # We first need to handle errorbars since they
+                # are saved in child.containers
+                container_content = _ContentManager()
+                for con in child.containers:
+                    if type(con) == mpl.container.ErrorbarContainer:
+                        data, cont = line2d.draw_errorbar2d(data, con)
+                        container_content.extend(cont, child.get_zorder())
+                        saved_objs.extend(con.get_children())
+
+                # Then recurse on the axes
+                data, children_content = _recurse(data, child, saved_objs)
                 # add extra axis options from children
                 if data['extra axis options']:
                     ax.axis_options.extend(data['extra axis options'])
@@ -289,6 +304,7 @@ def _recurse(data, obj):
                 # populate content
                 content.extend(
                     ax.get_begin_code() +
+                    container_content.flatten() + 
                     children_content +
                     (data['coordinates'] if 'coordinates' in data else []) +
                     [ax.get_end_code(data)], 0)
@@ -303,7 +319,7 @@ def _recurse(data, obj):
             data, cont = img.draw_image(data, child)
             content.extend(cont, child.get_zorder())
             # # Really necessary?
-            # data, children_content = _recurse(data, child)
+            # data, children_content = _recurse(data, child, saved_objs)
             # content.extend(children_content)
         elif isinstance(child, mpl.patches.Patch):
             data, cont = patch.draw_patch(data, child)

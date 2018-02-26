@@ -3,12 +3,12 @@
 from __future__ import print_function
 
 import six
-
+import numpy as np
 from . import color as mycol
 from . import path as mypath
 from .legend import get_legend_object, add_to_legend
 
-def draw_line2d(data, obj):
+def draw_line2d(data, obj, yerr=None, xerr=None):
     '''Returns the PGFPlots code for an Line2D environment.
     '''
     content = []
@@ -108,8 +108,6 @@ def draw_line2d(data, obj):
         options = ', '.join(addplot_options)
         content.append('[' + options + ']\n')
 
-    content.append('table {%\n')
-
     # nschloe, Oct 2, 2015:
     #   The transform call yields warnings and it is unclear why. Perhaps
     #   the input data is not suitable? Anyhow, this should not happen.
@@ -122,25 +120,122 @@ def draw_line2d(data, obj):
     except AttributeError:
         has_mask = 0
 
-    if has_mask:
-        # matplotlib jumps at masked images, while PGFPlots by default
-        # interpolates. Hence, if we have a masked plot, make sure that
-        # PGFPlots jumps as well.
-        data['extra axis options'].add('unbounded coords=jump')
-        for (x, y, is_masked) in zip(xdata, ydata, ydata.mask):
-            if is_masked:
-                content.append('%.15g nan\n' % x)
+    has_xerr = xerr is not None
+    has_yerr = yerr is not None
+
+    if has_xerr:
+        try:
+            has_xlim = len(xerr) == 2 and len(xerr[0]) == len(xdata) and \
+                       len(xerr[1]) == len(xdata)
+        except IndexError:
+            has_xlim = False
+
+    if has_yerr:
+        try:
+            has_ylim = len(yerr) == 2 and len(yerr[0]) == len(ydata) and \
+                       len(yerr[1]) == len(ydata)
+        except IndexError:
+            has_ylim = False
+
+    # if has_mask:
+    #     # matplotlib jumps at masked images, while PGFPlots by default
+    #     # interpolates. Hence, if we have a masked plot, make sure that
+    #     # PGFPlots jumps as well.
+    #     data['extra axis options'].add('unbounded coords=jump')
+    #     for (x, y, is_masked) in zip(xdata, ydata, ydata.mask):
+    #         if is_masked:
+    #             content.append('%.15g nan\n' % x)
+    #         else:
+    #             content.append('%.15g %.15g\n' % (x, y))
+    # else:
+    #     for (x, y) in zip(xdata, ydata):
+    #         content.append('%.15g %.15g\n' % (x, y))
+
+    if has_xerr or has_yerr:
+        tbl_header = ['x y']
+        plot_props = ["error bars/.cd"]
+        table_props = ["x=x, y=y"]
+        if has_xerr:
+            plot_props.append("x dir=both, x explicit")
+            if has_xlim:
+                tbl_header.append('x-min x-man')
+                table_props.append("x error minus=x-min")
+                table_props.append("x error plus=x-max")
             else:
-                content.append('%.15g %.15g\n' % (x, y))
+                tbl_header.append('x-err')
+                table_props.append("x error=x-err")
+        if has_yerr:
+            plot_props.append("y dir=both, y explicit")
+            if has_ylim:
+                tbl_header.append("y-min y-max")
+                table_props.append("y error minus=y-min")
+                table_props.append("y error plus=y-max")
+            else:
+                tbl_header.append('y-err')
+                table_props.append("y error=y-err")                
+        content.append("plot [%s]\n" % ", ".join(plot_props))
+        content.append("table [%s]{%%\n" % ", ".join(table_props))        
+        content.append("%s\n" % " ".join(tbl_header))
     else:
-        for (x, y) in zip(xdata, ydata):
-            content.append('%.15g %.15g\n' % (x, y))
+        content.append('table {%\n')
+
+    for i in xrange(0, len(xdata)):
+        tmp = ['%.15g' % xdata[i]]
+        if has_mask and ydata.mask[i]:
+            tmp.append('nan')
+        else:
+            tmp.append('%.15g' % ydata[i])
+        if has_xerr:
+            if has_xlim:
+                tmp.append('%.15g %.15g' % (xerr[0][i], xerr[1][i]))
+            else:
+                tmp.append('%.15g' % xerr[i])
+        if has_yerr:
+            if has_ylim:
+                tmp.append('%.15g %.15g' % (yerr[0][i], yerr[1][i]))
+            else:
+                tmp.append('%.15g' % yerr[i])
+        content.append(" ".join(tmp) + "\n")
+
     content.append('};\n')
 
     add_to_legend(data, content, obj)
 
     return data, content
 
+
+def draw_errorbar2d(data, obj, rel_tol=1e-09):
+    has_yerr = obj.has_yerr
+    has_xerr = obj.has_xerr
+    obj = obj.get_children()
+    cmp_eq = lambda a, b: np.abs(a-b) <= rel_tol * np.maximum(np.abs(a), np.abs(b))
+    cmp_neq = lambda a, b: np.abs(a-b) > rel_tol * np.maximum(np.abs(a), np.abs(b))
+    # I am expected the first line to be the main object
+    # Then 2 for x err
+    # and 2 for y err
+    yerr = None
+    xerr = None
+    i = 1
+    x_data, y_data = obj[0].get_data()
+    if has_xerr:
+        x_low, _ = obj[i].get_data()
+        x_high, _ = obj[i+1].get_data()
+        if cmp_neq(x_high, x_low).any():
+            xerr = x_high-x_data
+            if cmp_neq(xerr, x_data-x_low).any() or (x_low < 0).any():
+                xerr = [x_data-x_low, x_high-x_data]
+        i += 2
+
+    if has_yerr:
+        _, y_low = obj[i].get_data()
+        _, y_high = obj[i+1].get_data()
+        if cmp_neq(y_high, y_low).any():
+            yerr = y_high-y_data
+            if cmp_neq(yerr, y_data-y_low).any() or (y_low < 0).any():
+                yerr = [y_data-y_low, y_high-y_data]                
+        i += 2
+
+    return draw_line2d(data, obj[0], yerr=yerr, xerr=xerr)
 
 def draw_linecollection(data, obj):
     '''Returns Pgfplots code for a number of patch objects.

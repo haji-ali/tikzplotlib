@@ -260,6 +260,6 @@ def draw_legend(data, obj):
                 tex_label = "??"
             else:
                 tex_label = data['legend-handles'][h]
-            contents.append("\\ref{%s} {%s}\\\\\n" % (tex_label, l))
+            contents.append("\\ref{%s}& {%s}\\\\\n" % (tex_label, l))
         contents.append("};\n")
     return data, contents
