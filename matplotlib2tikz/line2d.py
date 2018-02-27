@@ -8,7 +8,7 @@ from . import color as mycol
 from . import path as mypath
 from .legend import get_legend_object, add_to_legend
 
-def draw_line2d(data, obj, yerr=None, xerr=None):
+def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
     '''Returns the PGFPlots code for an Line2D environment.
     '''
     content = []
@@ -102,11 +102,6 @@ def draw_line2d(data, obj, yerr=None, xerr=None):
     if get_legend_object(obj) is None:
         addplot_options.append("forget plot")
 
-    # process options
-    content.append('\\addplot ')
-    if addplot_options:
-        options = ', '.join(addplot_options)
-        content.append('[' + options + ']\n')
 
     # nschloe, Oct 2, 2015:
     #   The transform call yields warnings and it is unclear why. Perhaps
@@ -137,74 +132,103 @@ def draw_line2d(data, obj, yerr=None, xerr=None):
         except IndexError:
             has_ylim = False
 
-    # if has_mask:
-    #     # matplotlib jumps at masked images, while PGFPlots by default
-    #     # interpolates. Hence, if we have a masked plot, make sure that
-    #     # PGFPlots jumps as well.
-    #     data['extra axis options'].add('unbounded coords=jump')
-    #     for (x, y, is_masked) in zip(xdata, ydata, ydata.mask):
-    #         if is_masked:
-    #             content.append('%.15g nan\n' % x)
-    #         else:
-    #             content.append('%.15g %.15g\n' % (x, y))
-    # else:
-    #     for (x, y) in zip(xdata, ydata):
-    #         content.append('%.15g %.15g\n' % (x, y))
+    ################ Output Data
+    x_col = 'x'
+    y_col = 'y'
+    yerr_col = 'y-err'
+    xerr_col = 'x-err'
+    ymin_col = 'y-min'
+    xmin_col = 'x-min'
+    ymax_col = 'y-max'
+    xmax_col = 'x-max'
 
-    if has_xerr or has_yerr:
-        tbl_header = ['x y']
-        plot_props = ["error bars/.cd"]
-        table_props = ["x=x, y=y"]
-        if has_xerr:
-            plot_props.append("x dir=both, x explicit")
-            if has_xlim:
-                tbl_header.append('x-min x-man')
-                table_props.append("x error minus=x-min")
-                table_props.append("x error plus=x-max")
-            else:
-                tbl_header.append('x-err')
-                table_props.append("x error=x-err")
-        if has_yerr:
-            plot_props.append("y dir=both, y explicit")
-            if has_ylim:
-                tbl_header.append("y-min y-max")
-                table_props.append("y error minus=y-min")
-                table_props.append("y error plus=y-max")
-            else:
-                tbl_header.append('y-err')
-                table_props.append("y error=y-err")                
-        content.append("plot [%s]\n" % ", ".join(plot_props))
-        content.append("table [%s]{%%\n" % ", ".join(table_props))        
-        content.append("%s\n" % " ".join(tbl_header))
-    else:
-        content.append('table {%\n')
+    tikz_function = None if not hasattr(obj, 'tikz_function') else obj.tikz_function()
 
-    for i in xrange(0, len(xdata)):
-        tmp = ['%.15g' % xdata[i]]
-        if has_mask and ydata.mask[i]:
-            tmp.append('nan')
+    if tikz_function is None:
+        # Output data instead
+        if data_file is not None:
+            # TODO: Data file does not handle masks
+            x_col = data_file.append(x_col, xdata)
+            y_col = data_file.append(y_col, ydata)
+            if has_xerr:
+                if has_xlim:
+                    xmin_col = data_file.append(xmin_col, xerr[0])
+                    xmax_col = data_file.append(xmax_col, xerr[1])
+                else:
+                    xerr_col = data_file.append(xerr_col, xerr)
+            if has_yerr:
+                if has_ylim:
+                    ymin_col = data_file.append(ymin_col, yerr[0])
+                    ymax_col = data_file.append(ymax_col, yerr[1])
+                else:
+                    yerr_col = data_file.append(yerr_col, yerr)
+
+        tbl_header = ['%s %s' % (x_col, y_col)]
+        table_props = ["x=%s, y=%s" % (x_col, y_col)]
+        if has_xerr or has_yerr:
+            addplot_options.append("error bars/.cd")
+            if has_xerr:
+                addplot_options.append("x dir=both, x explicit")
+                if has_xlim:
+                    tbl_header.append('%s %s' % (xmin_col, xmax_col))
+                    table_props.append("x error minus=%s" % xmin_col)
+                    table_props.append("x error plus=%s" % xmax_col)
+                else:
+                    tbl_header.append('%s' % xerr_col)
+                    table_props.append("x error=%s" % xerr_col)
+            if has_yerr:
+                addplot_options.append("y dir=both, y explicit")
+                if has_ylim:
+                    tbl_header.append("%s %s" % (ymin_col, ymax_col))
+                    table_props.append("y error minus=%s" % ymin_col)
+                    table_props.append("y error plus=%s" % ymax_col)
+                else:
+                    tbl_header.append(yerr_col)
+                    table_props.append("y error=%s" % yerr_col)
+
+    # process options
+    content.append('\\addplot ')
+    if addplot_options:
+        options = ', '.join(addplot_options)
+        content.append('[' + options + ']\n')
+
+    if tikz_function is None:
+        table_props = " [%s]" % ", ".join(table_props) if len(table_props) > 0 else ""
+        if data_file is not None:
+            content.append('table%s {%s};\n' % (table_props, data_file.filename))
         else:
-            tmp.append('%.15g' % ydata[i])
-        if has_xerr:
-            if has_xlim:
-                tmp.append('%.15g %.15g' % (xerr[0][i], xerr[1][i]))
-            else:
-                tmp.append('%.15g' % xerr[i])
-        if has_yerr:
-            if has_ylim:
-                tmp.append('%.15g %.15g' % (yerr[0][i], yerr[1][i]))
-            else:
-                tmp.append('%.15g' % yerr[i])
-        content.append(" ".join(tmp) + "\n")
+            content.append('table%s {%%\n' % table_props)
+            if len(tbl_header) > 0:
+                content.append("%s\n" % " ".join(tbl_header))
 
-    content.append('};\n')
+            for i in xrange(0, len(xdata)):
+                tmp = ['%.15g' % xdata[i]]
+                if has_mask and ydata.mask[i]:
+                    tmp.append('nan')
+                else:
+                    tmp.append('%.15g' % ydata[i])
+                if has_xerr:
+                    if has_xlim:
+                        tmp.append('%.15g %.15g' % (xerr[0][i], xerr[1][i]))
+                    else:
+                        tmp.append('%.15g' % xerr[i])
+                if has_yerr:
+                    if has_ylim:
+                        tmp.append('%.15g %.15g' % (yerr[0][i], yerr[1][i]))
+                    else:
+                        tmp.append('%.15g' % yerr[i])
+                content.append(" ".join(tmp) + "\n")
+            content.append('};\n')
+    else:
+        content.append('{%s}' % tikz_function)
 
     add_to_legend(data, content, obj)
+    content.append('\n')
 
     return data, content
 
 
-def draw_errorbar2d(data, obj, rel_tol=1e-09):
+def draw_errorbar2d(data, obj, data_file=None, rel_tol=1e-09):
     has_yerr = obj.has_yerr
     has_xerr = obj.has_xerr
     obj = obj.get_children()
@@ -222,8 +246,8 @@ def draw_errorbar2d(data, obj, rel_tol=1e-09):
         x_high, _ = obj[i+1].get_data()
         if cmp_neq(x_high, x_low).any():
             xerr = x_high-x_data
-            if cmp_neq(xerr, x_data-x_low).any() or (x_low < 0).any():
-                xerr = [x_data-x_low, x_high-x_data]
+            # if cmp_neq(xerr, x_data-x_low).any() or (x_low < 0).any():
+            #     xerr = [x_data-x_low, x_high-x_data]
         i += 2
 
     if has_yerr:
@@ -231,11 +255,12 @@ def draw_errorbar2d(data, obj, rel_tol=1e-09):
         _, y_high = obj[i+1].get_data()
         if cmp_neq(y_high, y_low).any():
             yerr = y_high-y_data
-            if cmp_neq(yerr, y_data-y_low).any() or (y_low < 0).any():
-                yerr = [y_data-y_low, y_high-y_data]                
+            # if cmp_neq(yerr, y_data-y_low).any() or (y_low < 0).any():
+            #     yerr = [y_data-y_low, y_high-y_data]
         i += 2
 
-    return draw_line2d(data, obj[0], yerr=yerr, xerr=xerr)
+    return draw_line2d(data, obj[0], data_file=data_file, yerr=yerr,
+                       xerr=xerr)
 
 def draw_linecollection(data, obj):
     '''Returns Pgfplots code for a number of patch objects.

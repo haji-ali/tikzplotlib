@@ -81,14 +81,14 @@ def draw_path(data, path, draw_options=None, simplify=None):
     return data, path_command
 
 
-def draw_pathcollection(data, obj):
+def draw_pathcollection(data, obj, data_file):
     '''Returns PGFPlots code for a number of patch objects.
     '''
     content = []
 
     # gather data
     assert obj.get_offsets() is not None
-    labels = ['x' + 21*' ', 'y' + 21*' ']
+    labels = ['x', 'y']
     dd = obj.get_offsets()
 
     draw_options = ['only marks']
@@ -96,9 +96,9 @@ def draw_pathcollection(data, obj):
     if obj.get_array() is not None:
         draw_options.append('scatter')
         dd = numpy.column_stack([dd, obj.get_array()])
-        labels.append('colordata' + 13*' ')
+        labels.append('colordata')
         draw_options.append('scatter src=explicit')
-        table_options.extend(['x=x', 'y=y', 'meta=colordata'])
+
         ec = None
         fc = None
     else:
@@ -139,25 +139,39 @@ def draw_pathcollection(data, obj):
         # In Pgfplots, \mark size specifies raddi, in matplotlib circle areas.
         radii = numpy.sqrt(obj.get_sizes() / numpy.pi)
         dd = numpy.column_stack([dd, radii])
-        labels.append('sizedata' + 14*' ')
+        labels.append('sizedata')
+
+    # Add date to data file
+    if data_file is not None:
+        for i in range(len(labels)):
+            labels[i] = data_file.append(labels[i], [d[i] for d in dd])
+
+    if len(obj.get_sizes()) == len(dd):
         draw_options.extend([
             'visualization depends on='
-            '{\\thisrow{sizedata} \\as\\perpointmarksize}',
+            '{\\thisrow{%s} \\as\\perpointmarksize}' % labels[-1],
             'scatter/@pre marker code/.append style='
             '{/tikz/mark size=\\perpointmarksize}',
             ])
+
+    table_options.extend(['x=%s' % labels[0], 'y=%s' % labels[1]])
+    if obj.get_array() is not None:
+        table_options.append('meta=%s' % labels[2])
 
     do = ' [{}]'.format(', '.join(draw_options)) if draw_options else ''
     content.append('\\addplot{}\n'.format(do))
 
     to = ' [{}]'.format(', '.join(table_options)) if table_options else ''
-    content.append('table{}{{%\n'.format(to))
 
-    content.append((' '.join(labels)).strip() + '\n')
-    fmt = (' '.join(dd.shape[1] * ['%+.15e'])) + '\n'
-    for d in dd:
-        content.append(fmt % tuple(d))
-    content.append('};\n')
+    if data_file is None:
+        content.append('table{}{{%\n'.format(to))
+        content.append((' '.join(labels)).strip() + '\n')
+        fmt = (' '.join(dd.shape[1] * ['%+.15e'])) + '\n'
+        for d in dd:
+            content.append(fmt % tuple(d))
+        content.append('};\n')
+    else:
+        content.append('table%s {%s}\n' % (to, data_file.filename))
 
     return data, content
 

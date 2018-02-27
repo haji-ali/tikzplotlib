@@ -7,6 +7,11 @@ import os
 import matplotlib as mpl
 import six
 
+# For DateFile
+from itertools import izip_longest
+from collections import OrderedDict
+import numpy as np
+
 from . import axes
 from . import legend
 from . import line2d
@@ -15,7 +20,6 @@ from . import quadmesh as qmsh
 from . import path
 from . import patch
 from . import text as mytext
-
 from .__about__ import __version__
 
 
@@ -33,7 +37,8 @@ def get_tikz_code(
         dpi=None,
         show_info=True,
         manual_legend=False,
-        figlabel=''
+        figlabel='',
+        data_file = None
         ):
     '''Main function. Here, the recursion into the image starts and the
     contents are picked up. The actual file gets written in this routine.
@@ -147,7 +152,7 @@ def get_tikz_code(
             else mpl.rcParams['figure.dpi']
 
     # gather the file content
-    data, content = _recurse(data, figure, [])
+    data, content = _recurse(data, figure, [], data_file)
 
     # Check if there is still an open groupplot environment. This occurs if not
     # all of the group plot slots are used.
@@ -260,7 +265,52 @@ class _ContentManager(object):
         return content_out
 
 
-def _recurse(data, obj, saved_objs):
+class DataFile(object):
+    def __init__(self, filename):
+        self.columns = OrderedDict()
+        self.filename = filename
+
+    def append(self, col_type, column, rel_tol=1e-09):
+        cmp_eq = lambda a, b: np.abs(a-b) <= rel_tol * np.maximum(np.abs(a), np.abs(b))
+
+        i = 0
+        ac = np.array(column)
+        for k, v in self.columns.iteritems():
+            if len(k) == len(col_type) or k[len(col_type):].isdigit():
+                i += 1
+            if len(v) == len(column) and np.all(cmp_eq(v, ac)):
+                return k   # This column has already been added
+
+        # New column
+        key = col_type + (str(i) if i > 0 else '')
+        self.columns[key] = ac
+        return key
+
+    def write(self, filename, transpose=False):
+        keys = self.columns.keys()
+        vals = self.columns.values()
+        # Longest vector first
+        # ii = np.argsort([len(v) for v in vals])[::-1]
+        # keys = [keys[i] for i in ii]
+        # vals = [vals[i] for i in ii]
+        if not transpose:
+            with open(filename, 'wb') as f:
+                f.write(" ".join(keys) + "\n")
+                for row in izip_longest(*vals, fillvalue=np.nan):
+                    f.write(" ".join(["%.15g" % v for v in row if v is not None]) + "\n")
+        else:
+            max_count = np.max([len(v_row) for v_row in vals])
+            with open(filename, 'wb') as f:
+                for k_row, v_row in zip(keys, vals):
+                    f.write(k_row + " ")
+                    f.write(" ".join(["%.15g" % v for v in v_row if v is not
+                                      None]))
+                    if len(v_row) < max_count:
+                        f.write(" " + " ".join(["nan"] * (max_count - len(v_row))))
+                    f.write("\n")
+
+
+def _recurse(data, obj, saved_objs, data_file):
     '''Iterates over all children of the current object, gathers the contents
     contributing to the resulting PGFPlots file, and returns those.
     '''
@@ -283,12 +333,13 @@ def _recurse(data, obj, saved_objs):
                 container_content = _ContentManager()
                 for con in child.containers:
                     if type(con) == mpl.container.ErrorbarContainer:
-                        data, cont = line2d.draw_errorbar2d(data, con)
+                        data, cont = line2d.draw_errorbar2d(data, con, data_file)
                         container_content.extend(cont, child.get_zorder())
                         saved_objs.extend(con.get_children())
 
                 # Then recurse on the axes
-                data, children_content = _recurse(data, child, saved_objs)
+                data, children_content = _recurse(data, child,
+                                                  saved_objs, data_file)
                 # add extra axis options from children
                 if data['extra axis options']:
                     ax.axis_options.extend(data['extra axis options'])
@@ -304,7 +355,7 @@ def _recurse(data, obj, saved_objs):
                 # populate content
                 content.extend(
                     ax.get_begin_code() +
-                    container_content.flatten() + 
+                    container_content.flatten() +
                     children_content +
                     (data['coordinates'] if 'coordinates' in data else []) +
                     [ax.get_end_code(data)], 0)
@@ -313,13 +364,13 @@ def _recurse(data, obj, saved_objs):
                     content.extend(cont_leg, leg)
 
         elif isinstance(child, mpl.lines.Line2D):
-            data, cont = line2d.draw_line2d(data, child)
+            data, cont = line2d.draw_line2d(data, child, data_file)
             content.extend(cont, child.get_zorder())
         elif isinstance(child, mpl.image.AxesImage):
             data, cont = img.draw_image(data, child)
             content.extend(cont, child.get_zorder())
             # # Really necessary?
-            # data, children_content = _recurse(data, child, saved_objs)
+            # data, children_content = _recurse(data, child, saved_objs, data_file)
             # content.extend(children_content)
         elif isinstance(child, mpl.patches.Patch):
             data, cont = patch.draw_patch(data, child)
@@ -334,7 +385,7 @@ def _recurse(data, obj, saved_objs):
             data, cont = patch.draw_patchcollection(data, child)
             content.extend(cont, child.get_zorder())
         elif isinstance(child, mpl.collections.PathCollection):
-            data, cont = path.draw_pathcollection(data, child)
+            data, cont = path.draw_pathcollection(data, child, data_file)
             content.extend(cont, child.get_zorder())
         elif isinstance(child, mpl.collections.LineCollection):
             data, cont = line2d.draw_linecollection(data, child)
