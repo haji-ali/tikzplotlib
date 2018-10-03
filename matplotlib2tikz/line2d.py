@@ -242,22 +242,17 @@ def draw_errorbar2d(data, obj, data_file=None, rel_tol=1e-09):
     i = 1
     x_data, y_data = obj[0].get_data()
     if has_xerr:
-        x_low, _ = obj[i].get_data()
-        x_high, _ = obj[i+1].get_data()
-        if cmp_neq(x_high, x_low).any():
-            xerr = x_high-x_data
-            # if cmp_neq(xerr, x_data-x_low).any() or (x_low < 0).any():
-            #     xerr = [x_data-x_low, x_high-x_data]
-        i += 2
+        x_range = [[s[0, 0], s[1, 0]] for s in obj[i].get_segments()]
+        xerr = [x_data-x_range[:, 0], x_range[:, 1]-x_data]
+        if cmp_neq(xerr[0], xerr[1]).all():
+            xerr = None if cmp_eq(xerr[0], 0).all() else xerr[0]
+        i += 1
 
     if has_yerr:
-        _, y_low = obj[i].get_data()
-        _, y_high = obj[i+1].get_data()
-        if cmp_neq(y_high, y_low).any():
-            yerr = y_high-y_data
-            # if cmp_neq(yerr, y_data-y_low).any() or (y_low < 0).any():
-            #     yerr = [y_data-y_low, y_high-y_data]
-        i += 2
+        y_range = np.array([[s[0, 1], s[1, 1]]for s in obj[i].get_segments()])
+        yerr = [y_data-y_range[:, 0], y_range[:, 1]-y_data]
+        if cmp_eq(yerr[0], yerr[1]).all():
+            yerr = None if cmp_eq(yerr[0], 0).all() else yerr[0]
 
     return draw_line2d(data, obj[0], data_file=data_file, yerr=yerr,
                        xerr=xerr)

@@ -8,7 +8,7 @@ import matplotlib as mpl
 import six
 
 # For DateFile
-from itertools import izip_longest
+from itertools import zip_longest
 from collections import OrderedDict
 import numpy as np
 
@@ -275,7 +275,7 @@ class DataFile(object):
 
         i = 0
         ac = np.array(column)
-        for k, v in self.columns.iteritems():
+        for k, v in self.columns.items():
             if len(k) == len(col_type) or k[len(col_type):].isdigit():
                 i += 1
             if len(v) == len(column) and np.all(cmp_eq(v, ac)):
@@ -294,13 +294,13 @@ class DataFile(object):
         # keys = [keys[i] for i in ii]
         # vals = [vals[i] for i in ii]
         if not transpose:
-            with open(filename, 'wb') as f:
+            with open(filename, 'w') as f:
                 f.write(" ".join(keys) + "\n")
-                for row in izip_longest(*vals, fillvalue=np.nan):
+                for row in zip_longest(*vals, fillvalue=np.nan):
                     f.write(" ".join(["%.15g" % v for v in row if v is not None]) + "\n")
         else:
             max_count = np.max([len(v_row) for v_row in vals])
-            with open(filename, 'wb') as f:
+            with open(filename, 'w') as f:
                 for k_row, v_row in zip(keys, vals):
                     f.write(k_row + " ")
                     f.write(" ".join(["%.15g" % v for v in v_row if v is not
@@ -361,7 +361,7 @@ def _recurse(data, obj, saved_objs, data_file):
                     [ax.get_end_code(data)], 0)
 
                 if cont_leg is not None:
-                    content.extend(cont_leg, leg)
+                    content.extend(cont_leg, leg.get_zorder())
 
         elif isinstance(child, mpl.lines.Line2D):
             data, cont = line2d.draw_line2d(data, child, data_file)

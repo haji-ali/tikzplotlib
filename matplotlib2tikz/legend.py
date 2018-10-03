@@ -251,7 +251,7 @@ def draw_legend(data, obj):
 
         contents.append(', '.join(legend_style))
         contents.append("] at (legend) {\n")
-        handles, labels = obj.get_axes().get_legend_handles_labels()
+        handles, labels = obj.axes.get_legend_handles_labels()
         for h, l in zip(handles, labels):
             # if isinstance(h, mpl.container.Container):
             #     h = h[0]
