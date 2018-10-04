@@ -257,6 +257,7 @@ def draw_errorbar2d(data, obj, data_file=None, rel_tol=1e-09):
     return draw_line2d(data, obj[0], data_file=data_file, yerr=yerr,
                        xerr=xerr)
 
+
 def draw_linecollection(data, obj):
     '''Returns Pgfplots code for a number of patch objects.
     '''

@@ -3,46 +3,7 @@
 import warnings
 
 import numpy
-import matplotlib as mpl
 from . import color as mycol
-
-
-def _leg_equal_handles(obj, h):
-    if obj == h:
-        return True
-    elif hasattr(h, '__iter__'):
-        return any([_leg_equal_handles(obj, c) for c in h])
-    return False
-
-
-def get_legend_object(obj):
-    '''Check if object is in legend
-    '''
-    #label = obj.get_label()
-    try:
-        handles, labels = obj.axes.get_legend_handles_labels()
-        for i, h in enumerate(handles):
-            if _leg_equal_handles(obj, h):
-                return h, labels[i]
-        return None
-    except AttributeError:
-        raise
-        return None
-
-
-def add_to_legend(data, content, obj):
-    leg_obj = get_legend_object(obj)
-    if leg_obj is None:
-        return
-    leg_obj = leg_obj[0]
-    if 'label-id' in data:
-        data['label-id'] = data['label-id']+1
-    else:
-        data['label-id'] = 0
-        data['legend-handles'] = dict()
-    tex_label = '%s-line%s' % (data['figlabel'], data['label-id'])
-    content.append("\\label{%s}\n" % tex_label)
-    data['legend-handles'][leg_obj] = tex_label
 
 
 def draw_legend(data, obj):
@@ -53,6 +14,11 @@ def draw_legend(data, obj):
     for text in obj.texts:
         texts.append('%s' % text.get_text())
         children_alignment.append('%s' % text.get_horizontalalignment())
+
+    is_manual = 'manual-legend' in data and data['manual-legend']
+    if not is_manual:
+        cont = 'legend entries={{%s}}' % '},{'.join(texts)
+        data['extra axis options'].add(cont)
 
     # Get the location.
     # http://matplotlib.org/api/legend_api.html
@@ -218,48 +184,92 @@ def draw_legend(data, obj):
             alignment = None
             break
 
-    contents = []
-    if 'manual-legend' not in data or not data['manual-legend']:
-        cont = 'legend entries={{%s}}' % '},{'.join(texts)
-        data['extra axis options'].add(cont)
+    if is_manual:
+        return do_manual_legend(obj, data, alignment, anchor,
+                                position, pad, legend_style)
 
-        if alignment:
-            data['extra axis options'].add(
-                'legend cell align={%s}' % alignment)
-        # Write styles to data
-        if legend_style:
-            style = 'legend style={%s}' % ', '.join(legend_style)
-            data['extra axis options'].add(style)
-    else:
-        contents.append("\\matrix [matrix of nodes,\n")
-        contents.append('inner sep=1pt, row sep=1pt,')
-        malign = 'west'
-        if alignment == 'right':
-            malign = 'east'
-        elif alignment == 'center':
-            malign = 'center'
-        contents.append('cells={anchor=%s},' % malign)
-        if anchor is None:
-            anchor = 'north east'
-        if position is None:
-            position = [1.-pad, 1.-pad]
+    if alignment:
+        data['extra axis options'].add(
+            'legend cell align={%s}' % alignment
+            )
 
-        contents.append('anchor={%s},' % anchor)
-        if 'coordinates' not in data:
-            data['coordinates'] = []
-        data['coordinates'].append('\\coordinate (legend) at (axis description cs:%.15g,%.15g);\n' % tuple(position))
+    # Write styles to data
+    if legend_style:
+        style = 'legend style={%s}' % ', '.join(legend_style)
+        data['extra axis options'].add(style)
 
-        contents.append(', '.join(legend_style))
-        contents.append("] at (legend) {\n")
+    return data, []
+
+
+def _leg_equal_handles(obj, h):
+    if obj == h:
+        return True
+    elif hasattr(h, '__iter__'):
+        return any([_leg_equal_handles(obj, c) for c in h])
+    return False
+
+
+def get_legend_object(obj):
+    '''Check if object is in legend
+    '''
+    #label = obj.get_label()
+    try:
         handles, labels = obj.axes.get_legend_handles_labels()
-        for h, l in zip(handles, labels):
-            # if isinstance(h, mpl.container.Container):
-            #     h = h[0]
-            if 'legend-handles' not in data or h not in data['legend-handles']:
-                print('matplotlib2tikz: Cannot find handle for label ''%s''.' % l)
-                tex_label = "??"
-            else:
-                tex_label = data['legend-handles'][h]
-            contents.append("\\ref{%s}& {%s}\\\\\n" % (tex_label, l))
-        contents.append("};\n")
+        for i, h in enumerate(handles):
+            if _leg_equal_handles(obj, h):
+                return h, labels[i]
+        return None
+    except AttributeError:
+        raise
+        return None
+
+
+def add_to_legend(data, content, obj):
+    leg_obj = get_legend_object(obj)
+    if leg_obj is None:
+        return
+    leg_obj = leg_obj[0]
+    if 'label-id' in data:
+        data['label-id'] = data['label-id']+1
+    else:
+        data['label-id'] = 0
+        data['legend-handles'] = dict()
+    tex_label = '%s-line%s' % (data['figlabel'], data['label-id'])
+    content.append("\\label{%s}\n" % tex_label)
+    data['legend-handles'][leg_obj] = tex_label
+
+
+def do_manual_legend(obj, data, alignment, anchor, position, pad, legend_style):
+    contents = []
+    contents.append("\\matrix [matrix of nodes,\n")
+    contents.append('inner sep=1pt, row sep=1pt,')
+    malign = 'west'
+    if alignment == 'right':
+        malign = 'east'
+    elif alignment == 'center':
+        malign = 'center'
+    contents.append('cells={anchor=%s},' % malign)
+    if anchor is None:
+        anchor = 'north east'
+    if position is None:
+        position = [1.-pad, 1.-pad]
+
+    contents.append('anchor={%s},' % anchor)
+    if 'coordinates' not in data:
+        data['coordinates'] = []
+    data['coordinates'].append('\\coordinate (legend) at (axis description cs:%.15g,%.15g);\n' % tuple(position))
+
+    contents.append(', '.join(legend_style))
+    contents.append("] at (legend) {\n")
+    handles, labels = obj.axes.get_legend_handles_labels()
+    for h, l in zip(handles, labels):
+        # if isinstance(h, mpl.container.Container):
+        #     h = h[0]
+        if 'legend-handles' not in data or h not in data['legend-handles']:
+            print('matplotlib2tikz: Cannot find handle for label ''%s''.' % l)
+            tex_label = "??"
+        else:
+            tex_label = data['legend-handles'][h]
+        contents.append("\\ref{%s}& {%s}\\\\\n" % (tex_label, l))
+    contents.append("};\n")
     return data, contents
