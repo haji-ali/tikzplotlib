@@ -270,19 +270,25 @@ class DataFile(object):
         self.columns = OrderedDict()
         self.filename = filename
 
-    def append(self, col_type, column, rel_tol=1e-09):
+    def append(self, col_type, column, rel_tol=1e-09, allow_partial=True):
         cmp_eq = lambda a, b: np.abs(a-b) <= rel_tol * np.maximum(np.abs(a), np.abs(b))
 
         i = 0
         ac = np.array(column)
         for k, v in self.columns.items():
-            if len(k) == len(col_type) or k[len(col_type):].isdigit():
+            if len(k) >= len(col_type) and \
+               k[:len(col_type)] == col_type and \
+               (len(k) == len(col_type) or k[len(col_type):].isdigit()):
                 i += 1
-            if len(v) == len(column) and np.all(cmp_eq(v, ac)):
-                return k   # This column has already been added
+            m = np.minimum(len(v), len(ac))
+            if (allow_partial or len(v) == len(column)) and \
+               np.all(cmp_eq(v[:m], ac[:m])):
+                if len(ac) > len(v):
+                    self.columns[k] = ac
+                return k
 
         # New column
-        key = col_type + (str(i) if i > 0 else '')
+        key = col_type + ('{:02}'.format(i) if i > 0 else '')
         self.columns[key] = ac
         return key
 

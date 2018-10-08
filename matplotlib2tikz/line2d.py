@@ -141,7 +141,8 @@ def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
     xmin_col = 'x-min'
     ymax_col = 'y-max'
     xmax_col = 'x-max'
-
+    allow_partial_x = True
+    allow_partial_y = not allow_partial_x
     tikz_function = None if not hasattr(obj, 'tikz_function') else obj.tikz_function()
 
     if tikz_function is None:
@@ -152,16 +153,22 @@ def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
             y_col = data_file.append(y_col, ydata)
             if has_xerr:
                 if has_xlim:
-                    xmin_col = data_file.append(xmin_col, xerr[0])
-                    xmax_col = data_file.append(xmax_col, xerr[1])
+                    xmin_col = data_file.append(xmin_col, xerr[0],
+                                                allow_partial=allow_partial_x)
+                    xmax_col = data_file.append(xmax_col, xerr[1],
+                                                allow_partial=allow_partial_x)
                 else:
-                    xerr_col = data_file.append(xerr_col, xerr)
+                    xerr_col = data_file.append(xerr_col, xerr,
+                                                allow_partial=allow_partial_x)
             if has_yerr:
                 if has_ylim:
-                    ymin_col = data_file.append(ymin_col, yerr[0])
-                    ymax_col = data_file.append(ymax_col, yerr[1])
+                    ymin_col = data_file.append(ymin_col, yerr[0],
+                                                allow_partial=allow_partial_y)
+                    ymax_col = data_file.append(ymax_col, yerr[1],
+                                                allow_partial=allow_partial_y)
                 else:
-                    yerr_col = data_file.append(yerr_col, yerr)
+                    yerr_col = data_file.append(yerr_col, yerr,
+                                                allow_partial=allow_partial_y)
 
         tbl_header = ['%s %s' % (x_col, y_col)]
         table_props = ["x=%s, y=%s" % (x_col, y_col)]
