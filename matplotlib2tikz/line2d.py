@@ -208,7 +208,7 @@ def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
             if len(tbl_header) > 0:
                 content.append("%s\n" % " ".join(tbl_header))
 
-            for i in xrange(0, len(xdata)):
+            for i in range(0, len(xdata)):
                 tmp = ['%.15g' % xdata[i]]
                 if has_mask and ydata.mask[i]:
                     tmp.append('nan')
