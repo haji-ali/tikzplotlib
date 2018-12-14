@@ -38,7 +38,7 @@ def get_tikz_code(
         show_info=True,
         manual_legend=False,
         figlabel='',
-        data_file = None
+        data_file=None
         ):
     '''Main function. Here, the recursion into the image starts and the
     contents are picked up. The actual file gets written in this routine.
@@ -266,9 +266,9 @@ class _ContentManager(object):
 
 
 class DataFile(object):
-    def __init__(self, filename):
+    def __init__(self, tablename):
         self.columns = OrderedDict()
-        self.filename = filename
+        self.tablename = tablename
 
     def append(self, col_type, column, rel_tol=1e-09, allow_partial=True):
         cmp_eq = lambda a, b: np.abs(a-b) <= rel_tol * np.maximum(np.abs(a), np.abs(b))
@@ -292,7 +292,13 @@ class DataFile(object):
         self.columns[key] = ac
         return key
 
+    def load(self, filename, transpose=False):
+        raise NotImplementedError()
+
     def write(self, filename, transpose=False):
+        if len(self.columns) == 0:
+            raise UserWarning("Datafile is empty")
+
         keys = self.columns.keys()
         vals = self.columns.values()
         # Longest vector first

@@ -143,7 +143,7 @@ def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
     xmax_col = 'x-max'
     allow_partial_x = True
     allow_partial_y = not allow_partial_x
-    tikz_function = None if not hasattr(obj, 'tikz_function') else obj.tikz_function()
+    tikz_function = None if not hasattr(obj, 'tikz_function') else obj.tikz_function
 
     if tikz_function is None:
         # Output data instead
@@ -202,7 +202,7 @@ def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
     if tikz_function is None:
         table_props = " [%s]" % ", ".join(table_props) if len(table_props) > 0 else ""
         if data_file is not None:
-            content.append('table%s {%s};\n' % (table_props, data_file.filename))
+            content.append('table%s {%s};\n' % (table_props, data_file.tablename))
         else:
             content.append('table%s {%%\n' % table_props)
             if len(tbl_header) > 0:
