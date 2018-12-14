@@ -356,7 +356,7 @@ def _recurse(data, obj, saved_objs, data_file):
                 if data['extra axis options']:
                     ax.axis_options.extend(data['extra axis options'])
 
-                manual_legend = 'manual-legend' in data and data['manual-legend']
+                manual_legend = data.get('manual-legend', False)
 
                 leg, cont_leg = None, None
                 if manual_legend:
@@ -406,7 +406,7 @@ def _recurse(data, obj, saved_objs, data_file):
             data, cont = qmsh.draw_quadmesh(data, child)
             content.extend(cont, child.get_zorder())
         elif isinstance(child, mpl.legend.Legend):
-            if 'manual-legend' in data and data['manual-legend']:
+            if data.get('manual-legend', False):
                 pass
             else:
                 data, cont = legend.draw_legend(data, child)
