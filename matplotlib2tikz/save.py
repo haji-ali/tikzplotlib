@@ -266,9 +266,12 @@ class _ContentManager(object):
 
 
 class DataFile(object):
-    def __init__(self, tablename):
+    def __init__(self, tablename, filename, transpose=False):
         self.columns = OrderedDict()
         self.tablename = tablename
+        self.filename = filename
+        self.transpose = True
+        self.load()
 
     def append(self, col_type, column, rel_tol=1e-09, allow_partial=True):
         cmp_eq = lambda a, b: np.abs(a-b) <= rel_tol * np.maximum(np.abs(a), np.abs(b))
@@ -292,31 +295,53 @@ class DataFile(object):
         self.columns[key] = ac
         return key
 
-    def load(self, filename, transpose=False):
-        raise NotImplementedError()
+    def load(self):
+        if not os.path.isfile(self.filename):
+            return
+        with open(self.filename, 'r') as f:
+            if self.transpose:
+                for line in f:
+                    parts = line.strip().split(' ')
+                    while parts[-1] == 'nan':
+                        parts.pop()
+                    self.columns[parts[0]] = np.array(parts[1:]).astype(np.float)
+            else:
+                keys = f.readline().strip().split(' ')
+                values = []
+                for line in f:
+                    values = line.strip().split(' ')
+                    values.append(np.array(values).astype(np.float))
+                values = np.vstack(values)
+                for i, k in enumerate(keys):
+                    l = len(values[:, k])
+                    while values[l-1, k] == np.nan:
+                        l -= 1
+                    self.columns[k] = values[:l, k]
 
-    def write(self, filename, transpose=False):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, type, value, traceback):
+        self.write()
+
+    def write(self):
         if len(self.columns) == 0:
             raise UserWarning("Datafile is empty")
 
         keys = self.columns.keys()
         vals = self.columns.values()
-        # Longest vector first
-        # ii = np.argsort([len(v) for v in vals])[::-1]
-        # keys = [keys[i] for i in ii]
-        # vals = [vals[i] for i in ii]
-        if not transpose:
-            with open(filename, 'w') as f:
+        if not self.transpose:
+            with open(self.filename, 'w') as f:
                 f.write(" ".join(keys) + "\n")
                 for row in zip_longest(*vals, fillvalue=np.nan):
-                    f.write(" ".join(["%.15g" % v for v in row if v is not None]) + "\n")
+                    f.write(" ".join(["%.15g" % v for v in row]) + "\n")
         else:
             max_count = np.max([len(v_row) for v_row in vals])
-            with open(filename, 'w') as f:
+            with open(self.filename, 'w') as f:
                 for k_row, v_row in zip(keys, vals):
                     f.write(k_row + " ")
-                    f.write(" ".join(["%.15g" % v for v in v_row if v is not
-                                      None]))
+                    f.write(" ".join(["%.15g" % v for v in v_row]))
+                    # Pad with nans... Pgfplot needs it for some reason
                     if len(v_row) < max_count:
                         f.write(" " + " ".join(["nan"] * (max_count - len(v_row))))
                     f.write("\n")
