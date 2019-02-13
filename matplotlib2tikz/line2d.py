@@ -227,7 +227,7 @@ def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
                 content.append(" ".join(tmp) + "\n")
             content.append('};\n')
     else:
-        content.append('{%s}' % tikz_function)
+        content.append('{%s};' % tikz_function)
 
     add_to_legend(data, content, obj)
     content.append('\n')
@@ -249,7 +249,7 @@ def draw_errorbar2d(data, obj, data_file=None, rel_tol=1e-09):
     i = 1
     x_data, y_data = obj[0].get_data()
     if has_xerr:
-        x_range = [[s[0, 0], s[1, 0]] for s in obj[i].get_segments()]
+        x_range = np.array([[s[0, 0], s[1, 0]] for s in obj[i].get_segments()])
         xerr = [x_data-x_range[:, 0], x_range[:, 1]-x_data]
         if cmp_neq(xerr[0], xerr[1]).all():
             xerr = None if cmp_eq(xerr[0], 0).all() else xerr[0]
