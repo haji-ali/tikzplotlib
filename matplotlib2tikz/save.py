@@ -11,7 +11,7 @@ import six
 from itertools import zip_longest
 from collections import OrderedDict
 import numpy as np
-
+import numbers
 from . import axes
 from . import legend
 from . import line2d
@@ -266,11 +266,14 @@ class _ContentManager(object):
 
 
 class DataFile(object):
-    def __init__(self, tablename, filename, transpose=False):
+    def __init__(self, tablename, filename, transpose=False, sep=',',
+                 fillvalue=""):
         self.columns = OrderedDict()
         self.tablename = tablename
         self.filename = filename
-        self.transpose = True
+        self.transpose = transpose
+        self.sep = sep
+        self.fillvalue = fillvalue
         self.load()
 
     def append(self, col_type, column, rel_tol=1e-09, allow_partial=True):
@@ -296,25 +299,26 @@ class DataFile(object):
         return key
 
     def load(self):
+        ### TODO: Does not work with fillvalue other than nan
         if not os.path.isfile(self.filename):
             return
         with open(self.filename, 'r') as f:
             if self.transpose:
                 for line in f:
-                    parts = line.strip().split(' ')
-                    while parts[-1] == 'nan':
+                    parts = line.strip().split(self.sep)
+                    while parts[-1] == self.fillvalue:
                         parts.pop()
                     self.columns[parts[0]] = np.array(parts[1:]).astype(np.float)
             else:
-                keys = f.readline().strip().split(' ')
+                keys = f.readline().strip().split(self.sep)
                 values = []
                 for line in f:
-                    values = line.strip().split(' ')
+                    values = line.strip().split(self.sep)
                     values.append(np.array(values).astype(np.float))
                 values = np.vstack(values)
                 for i, k in enumerate(keys):
                     l = len(values[:, k])
-                    while values[l-1, k] == np.nan:
+                    while values[l-1, k] == self.fillvalue:
                         l -= 1
                     self.columns[k] = values[:l, k]
 
@@ -332,18 +336,20 @@ class DataFile(object):
         vals = self.columns.values()
         if not self.transpose:
             with open(self.filename, 'w') as f:
-                f.write(" ".join(keys) + "\n")
-                for row in zip_longest(*vals, fillvalue=np.nan):
-                    f.write(" ".join(["%.15g" % v for v in row]) + "\n")
+                f.write(self.sep.join(keys) + "\n")
+                for row in zip_longest(*vals, fillvalue=self.fillvalue):
+                    f.write(self.sep.join(
+                        ["%.15g" % v if isinstance(v, numbers.Number)
+                         else str(v) for v in row]) + "\n")
         else:
             max_count = np.max([len(v_row) for v_row in vals])
             with open(self.filename, 'w') as f:
                 for k_row, v_row in zip(keys, vals):
                     f.write(k_row + " ")
-                    f.write(" ".join(["%.15g" % v for v in v_row]))
-                    # Pad with nans... Pgfplot needs it for some reason
+                    f.write(self.sep.join(["%.15g" % v for v in v_row]))
+                    # Pad with fill-values... Pgfplot needs it for some reason
                     if len(v_row) < max_count:
-                        f.write(" " + " ".join(["nan"] * (max_count - len(v_row))))
+                        f.write(self.sep + self.sep.join([str(self.fillvalue)] * (max_count - len(v_row))))
                     f.write("\n")
 
 
