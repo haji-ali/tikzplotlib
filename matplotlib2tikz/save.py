@@ -6,6 +6,7 @@ import codecs
 import os
 import matplotlib as mpl
 import six
+import warnings
 
 # For DateFile
 from itertools import zip_longest
@@ -330,7 +331,7 @@ class DataFile(object):
 
     def write(self):
         if len(self.columns) == 0:
-            raise UserWarning("Datafile is empty")
+            warnings.warn("Datafile is empty")
 
         keys = self.columns.keys()
         vals = self.columns.values()
