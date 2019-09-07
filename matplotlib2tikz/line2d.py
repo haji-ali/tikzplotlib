@@ -120,14 +120,14 @@ def draw_line2d(data, obj, data_file=None, yerr=None, xerr=None):
 
     if has_xerr:
         try:
-            has_xlim = len(xerr) == 2 and len(xerr[0]) == len(xdata) and \
+            has_xlim = isinstance(xerr, list) and len(xerr[0]) == len(xdata) and \
                        len(xerr[1]) == len(xdata)
         except IndexError:
             has_xlim = False
 
     if has_yerr:
         try:
-            has_ylim = len(yerr) == 2 and len(yerr[0]) == len(ydata) and \
+            has_ylim = isinstance(yerr, list) and len(yerr[0]) == len(ydata) and \
                        len(yerr[1]) == len(ydata)
         except IndexError:
             has_ylim = False

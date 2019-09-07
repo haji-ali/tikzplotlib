@@ -346,7 +346,7 @@ class DataFile(object):
             max_count = np.max([len(v_row) for v_row in vals])
             with open(self.filename, 'w') as f:
                 for k_row, v_row in zip(keys, vals):
-                    f.write(k_row + " ")
+                    f.write(k_row + self.sep)
                     f.write(self.sep.join(["%.15g" % v for v in v_row]))
                     # Pad with fill-values... Pgfplot needs it for some reason
                     if len(v_row) < max_count:
