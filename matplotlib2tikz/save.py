@@ -269,7 +269,7 @@ class _ContentManager(object):
 class DataFile(object):
     def __init__(self, tablename, filename, transpose=False, sep=',',
                  fillvalue=""):
-        self.columns = OrderedDict()
+        self.columns = []
         self.tablename = tablename
         self.filename = filename
         self.transpose = transpose
@@ -280,29 +280,24 @@ class DataFile(object):
     def append(self, col_type, column, rel_tol=1e-09, allow_partial=True):
         cmp_eq = lambda a, b: np.abs(a-b) <= rel_tol * np.maximum(np.abs(a), np.abs(b))
 
-        i = 0
         ac = np.array(column)
-        for k, v in self.columns.items():
-            if len(k) >= len(col_type) and \
-               k[:len(col_type)] == col_type and \
-               (len(k) == len(col_type) or k[len(col_type):].isdigit()):
-                i += 1
+        for j, v in enumerate(self.columns):
             m = np.minimum(len(v), len(ac))
             if (allow_partial or len(v) == len(column)) and \
                np.all(cmp_eq(v[:m], ac[:m])):
                 if len(ac) > len(v):
-                    self.columns[k] = ac
-                return k
+                    self.columns[j] = ac
+                return j
 
         # New column
-        key = col_type + ('{:02}'.format(i) if i > 0 else '')
-        self.columns[key] = ac
-        return key
+        self.columns.append(ac)
+        return len(self.columns)-1
 
     def load(self):
         ### TODO: Does not work with fillvalue other than nan
         if not os.path.isfile(self.filename):
             return
+        raise Exception("Not updated")
         with open(self.filename, 'r') as f:
             if self.transpose:
                 for line in f:
@@ -332,21 +327,16 @@ class DataFile(object):
     def write(self):
         if len(self.columns) == 0:
             warnings.warn("Datafile is empty")
-
-        keys = self.columns.keys()
-        vals = self.columns.values()
         if not self.transpose:
             with open(self.filename, 'w') as f:
-                f.write(self.sep.join(keys) + "\n")
-                for row in zip_longest(*vals, fillvalue=self.fillvalue):
+                for row in zip_longest(*self.columns, fillvalue=self.fillvalue):
                     f.write(self.sep.join(
                         ["%.15g" % v if isinstance(v, numbers.Number)
                          else str(v) for v in row]) + "\n")
         else:
-            max_count = np.max([len(v_row) for v_row in vals])
+            max_count = np.max([len(v_row) for v_row in self.columns])
             with open(self.filename, 'w') as f:
-                for k_row, v_row in zip(keys, vals):
-                    f.write(k_row + self.sep)
+                for v_row in self.columns:
                     f.write(self.sep.join(["%.15g" % v for v in v_row]))
                     # Pad with fill-values... Pgfplot needs it for some reason
                     if len(v_row) < max_count:
