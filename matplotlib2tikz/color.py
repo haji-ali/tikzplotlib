@@ -16,16 +16,6 @@ def mpl_color2xcolor(data, matplotlib_color):
 
     # RGB values (as taken from xcolor.dtx):
     available_colors = {
-        'red':  numpy.array([1, 0, 0]),
-        'green': numpy.array([0, 1, 0]),
-        'blue': numpy.array([0, 0, 1]),
-        'brown': numpy.array([0.75, 0.5, 0.25]),
-        'lime': numpy.array([0.75, 1, 0]),
-        'orange': numpy.array([1, 0.5, 0]),
-        'pink': numpy.array([1, 0.75, 0.75]),
-        'purple': numpy.array([0.75, 0, 0.25]),
-        'teal': numpy.array([0, 0.5, 0.5]),
-        'violet': numpy.array([0.5, 0, 0.5]),
         'black': numpy.array([0, 0, 0]),
         'darkgray': numpy.array([0.25, 0.25, 0.25]),
         'gray': numpy.array([0.5, 0.5, 0.5]),
@@ -35,6 +25,23 @@ def mpl_color2xcolor(data, matplotlib_color):
         # predefined by xcolor, but their RGB approximation of the
         # native CMYK values is not very good. Don't use them here.
         }
+
+    if not data["black and white"]:
+        available_colors.update({
+            'red':  numpy.array([1, 0, 0]),
+            'green': numpy.array([0, 1, 0]),
+            'blue': numpy.array([0, 0, 1]),
+            'brown': numpy.array([0.75, 0.5, 0.25]),
+            'lime': numpy.array([0.75, 1, 0]),
+            'orange': numpy.array([1, 0.5, 0]),
+            'pink': numpy.array([1, 0.75, 0.75]),
+            'purple': numpy.array([0.75, 0, 0.25]),
+            'teal': numpy.array([0, 0.5, 0.5]),
+            'violet': numpy.array([0.5, 0, 0.5])
+            # The colors cyan, magenta, yellow, and olive are also
+            # predefined by xcolor, but their RGB approximation of the
+            # native CMYK values is not very good. Don't use them here.
+        })
 
     available_colors.update(data['custom colors'])
 
@@ -67,6 +74,10 @@ def mpl_color2xcolor(data, matplotlib_color):
             return data, xcol, my_col
 
     # Lookup failed, add it to the custom list.
+    if data["black and white"]:
+        # Unless it's black and white, then return black
+        return data, "black", my_col
+    
     xcol = 'color' + str(len(data['custom colors']))
     data['custom colors'][xcol] = my_col[:3]
     return data, xcol, my_col

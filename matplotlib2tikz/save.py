@@ -39,6 +39,7 @@ def get_tikz_code(
         show_info=True,
         manual_legend=False,
         figlabel='',
+        all_black=False,
         data_file=None
         ):
     '''Main function. Here, the recursion into the image starts and the
@@ -133,6 +134,7 @@ def get_tikz_code(
     data['tikz libs'] = set()
     data['pgfplots libs'] = set()
     data['font size'] = textsize
+    data['black and white'] = all_black
     data['custom colors'] = {}
     data['extra tikzpicture parameters'] = extra_tikzpicture_parameters
     # rectangle_legends is used to keep track of which rectangles have already
@@ -268,14 +270,15 @@ class _ContentManager(object):
 
 class DataFile(object):
     def __init__(self, tablename, filename, transpose=False, sep=',',
-                 fillvalue=""):
+                 fillvalue="", load=False):
         self.columns = []
         self.tablename = tablename
         self.filename = filename
         self.transpose = transpose
         self.sep = sep
         self.fillvalue = fillvalue
-        self.load()
+        if load:
+            self.load()
 
     def append(self, col_type, column, rel_tol=1e-09, allow_partial=True):
         cmp_eq = lambda a, b: np.abs(a-b) <= rel_tol * np.maximum(np.abs(a), np.abs(b))
