@@ -17,6 +17,6 @@ from matplotlib2tikz.__about__ import (
 
 from matplotlib2tikz.save import get_tikz_code, save, DataFile
 
-import pipdated
-if pipdated.needs_checking(__name__):
-    print(pipdated.check(__name__, __version__))
+# import pipdated
+# if pipdated.needs_checking(__name__):
+#     print(pipdated.check(__name__, __version__))
