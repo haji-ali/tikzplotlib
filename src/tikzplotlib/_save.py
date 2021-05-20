@@ -4,6 +4,7 @@ import enum
 import tempfile
 import warnings
 from pathlib import Path
+from typing import List, Optional, Set, Union, Type
 
 import matplotlib as mpl
 import matplotlib.pyplot as plt
@@ -13,6 +14,7 @@ from . import _image as img
 from . import _legend, _line2d, _patch, _path
 from . import _quadmesh as qmsh
 from . import _text
+from . import _files
 from .__about__ import __version__
 
 
@@ -23,7 +25,7 @@ def get_tikz_code(
     axis_height: str | None = None,
     textsize: float = 10.0,
     tex_relative_path_to_data: str | None = None,
-    externalize_tables: bool = False,
+    externalize_tables: bool | Type[_files.DataFile] = False,
     override_externals: bool = False,
     externals_search_path: str | None = None,
     strict: bool = False,

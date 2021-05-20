@@ -263,6 +263,12 @@ def _table(obj, data):  # noqa: C901
         # don't want the \n in the table definition, just in the data (below)
         opts.append("row sep=" + data["table_row_sep"].strip())
 
+    ext_tables = data["externalize tables"]
+    with_data_file = isinstance(ext_tables, _files.DataFile)
+    if with_data_file:
+        opts.append("x={}".format(ext_tables.append("x", xdata)))
+        opts.append("y={}".format(ext_tables.append("y", ydata)))
+
     table_row_sep = data["table_row_sep"]
     ydata[ydata_mask] = np.nan
     if np.any(ydata_mask) or ~np.all(np.isfinite(ydata)):
@@ -272,32 +278,35 @@ def _table(obj, data):  # noqa: C901
         if "unbounded coords=jump" not in data["current axes"].axis_options:
             data["current axes"].axis_options.append("unbounded coords=jump")
 
-    plot_table = [
-        f"{x:{xformat}}{col_sep}{y:{ff}}{table_row_sep}" for x, y in zip(xdata, ydata)
-    ]
+    if with_data_file:
+        content.append(ext_tables.tablename)
+    else:
+        plot_table = [
+            f"{x:{xformat}}{col_sep}{y:{ff}}{table_row_sep}" for x, y in zip(xdata, ydata)
+        ]
 
-    min_extern_length = 3
+        min_extern_length = 3
 
-    if data["externalize tables"] and len(xdata) >= min_extern_length:
-        filepath, rel_filepath = _files.new_filepath(data, "table", ".dat")
-        with open(filepath, "w") as f:
-            # No encoding handling required: plot_table is only ASCII
-            f.write("".join(plot_table))
+        if data["externalize tables"] and len(xdata) >= min_extern_length:
+            filepath, rel_filepath = _files.new_filepath(data, "table", ".dat")
+            with open(filepath, "w") as f:
+                # No encoding handling required: plot_table is only ASCII
+                f.write("".join(plot_table))
 
         if data["externals search path"] is not None:
             esp = data["externals search path"]
             opts.append(f"search path={{{esp}}}")
 
-        opts_str = ("[" + ",".join(opts) + "] ") if len(opts) > 0 else ""
-        posix_filepath = rel_filepath.as_posix()
-        content.append(f"table {{{opts_str}}}{{{posix_filepath}}};\n")
-    else:
-        if len(opts) > 0:
-            opts_str = ",".join(opts)
-            content.append(f"table [{opts_str}] {{%\n")
+            opts_str = ("[" + ",".join(opts) + "] ") if len(opts) > 0 else ""
+            posix_filepath = rel_filepath.as_posix()
+            content.append(f"table {{{opts_str}}}{{{posix_filepath}}};\n")
         else:
-            content.append("table {%\n")
-        content.extend(plot_table)
-        content.append("};\n")
+            if len(opts) > 0:
+                opts_str = ",".join(opts)
+                content.append(f"table [{opts_str}] {{%\n")
+            else:
+                content.append("table {%\n")
+            content.extend(plot_table)
+            content.append("};\n")
 
     return content, axis_options

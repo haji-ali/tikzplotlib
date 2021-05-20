@@ -3,6 +3,7 @@
 from .__about__ import __version__
 from ._cleanfigure import clean_figure
 from ._save import Flavors, get_tikz_code, save
+from ._files import DataFile
 
 __all__ = [
     "__version__",
@@ -10,4 +11,5 @@ __all__ = [
     "save",
     "clean_figure",
     "Flavors",
+    "DataFile"
 ]
