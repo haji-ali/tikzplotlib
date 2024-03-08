@@ -1,6 +1,8 @@
 import datetime
 
 import numpy as np
+import matplotlib as mpl
+import itertools
 from matplotlib.dates import num2date
 
 from . import _color as mycol
@@ -12,6 +14,7 @@ from ._util import get_legend_text, has_legend, transform_to_data_coordinates
 
 def draw_line2d(data, obj):
     """Returns the PGFPlots code for an Line2D environment."""
+
     content = []
     addplot_options = []
 
@@ -90,13 +93,14 @@ def draw_line2d(data, obj):
     if legend_text is None and has_legend(obj.axes):
         addplot_options.append("forget plot")
 
+    c, axis_options = _table(obj, data, addplot_options)
+
     # process options
     content.append("\\addplot ")
     if addplot_options:
         opts = ", ".join(addplot_options)
         content.append(f"[{opts}]\n")
 
-    c, axis_options = _table(obj, data)
     content += c
 
     if legend_text is not None:
@@ -107,6 +111,8 @@ def draw_line2d(data, obj):
 
 def draw_linecollection(data, obj):
     """Returns Pgfplots code for a number of patch objects."""
+    if any(v is not None for v in _get_errors(obj)):
+        return data, []  # Must have been plotted as part of the line2D
     content = []
 
     edgecolors = obj.get_edgecolors()
@@ -187,9 +193,10 @@ def _marker(
     addplot_options.append(f"mark options={{{opts}}}")
 
 
-def _table(obj, data):  # noqa: C901
+def _table(obj, data, addplot_options):  # noqa: C901
     # get_xydata() always gives float data, no matter what
     xdata, ydata = obj.get_xydata().T
+    xerr, yerr = _get_errors(obj)
 
     # get_{x,y}data gives datetime or string objects if so specified in the plotter
     xdata_alt = obj.get_xdata()
@@ -265,11 +272,42 @@ def _table(obj, data):  # noqa: C901
 
     ext_tables = data["externalize tables"]
     with_data_file = isinstance(ext_tables, _files.DataFile)
+
+    if xerr is not None or yerr is not None:
+        addplot_options.append("error bars/.cd")
+        if xerr is not None:
+            addplot_options.append("x dir=both, x explicit")
+        if yerr is not None:
+            addplot_options.append("y dir=both, y explicit")
+
+    table_index = 2
+    _index = " index"
+    def __get_table_index(name, data):
+        nonlocal table_index, ext_tables
+        if with_data_file:
+            return ext_tables.append(name, data)
+        table_index += 1
+        return str(table_index-1)
+
     if with_data_file:
         opts.append("x={}".format(ext_tables.append("x", xdata)))
         opts.append("y={}".format(ext_tables.append("y", ydata)))
+        _index = ""
 
-    table_row_sep = data["table_row_sep"]
+    if xerr is not None:
+        if len(xerr)>1:
+            opts.append(f"x error minus{_index}={__get_table_index('x-min', xerr[0])}")
+            opts.append(f"x error plus{_index}={__get_table_index('x-max', xerr[1])}")
+        else:
+            opts.append(f"x error{_index}={__get_table_index('x-err', xerr[0])}")
+
+    if yerr is not None:
+        if len(yerr)>1:
+            opts.append(f"y error minus{_index}={__get_table_index('y-min', yerr[0])}")
+            opts.append(f"y error plus{_index}={__get_table_index('y-max', yerr[1])}")
+        else:
+            opts.append(f"y error{_index}={__get_table_index('y-err', yerr[0])}")
+
     ydata[ydata_mask] = np.nan
     if np.any(ydata_mask) or ~np.all(np.isfinite(ydata)):
         # matplotlib jumps at masked or nan values, while PGFPlots by default
@@ -281,8 +319,14 @@ def _table(obj, data):  # noqa: C901
     if with_data_file:
         content.append(ext_tables.tablename)
     else:
+        table_row_sep = data["table_row_sep"]
+        errs = [
+            "".join([f"{col_sep}{e:{ff}}" for e in x])
+            for x in itertools.zip_longest(*((xerr or []) + (yerr or [])))
+        ]
         plot_table = [
-            f"{x:{xformat}}{col_sep}{y:{ff}}{table_row_sep}" for x, y in zip(xdata, ydata)
+            f"{x:{xformat}}{col_sep}{y:{ff}}{err if err is not None else ''}{table_row_sep}"
+            for x, y, err in itertools.zip_longest(xdata, ydata, errs)
         ]
 
         min_extern_length = 3
@@ -310,3 +354,35 @@ def _table(obj, data):  # noqa: C901
             content.append("};\n")
 
     return content, axis_options
+
+def _get_errors(obj, rtol=1e-05, atol=1e-08):
+    cont = None
+    for c in obj.axes.containers:
+        if obj in c.get_children():
+            cont = c
+
+    if (not isinstance(cont, mpl.container.ErrorbarContainer) or
+        (not cont.has_yerr and not cont.has_xerr)):
+        return None, None
+
+    obj = cont.get_children()
+
+    # I am expecting the first line to be the main object
+    # Then 2 for x err, and 3 for y err
+    x_data, y_data = obj[0].get_data()
+    xerr, yerr = None, None
+
+    i = 1
+    if cont.has_xerr:
+        x_range = np.array([[s[0, 0], s[1, 0]] for s in obj[i].get_segments()])
+        xerr = [x_data-x_range[:, 0], x_range[:, 1]-x_data]
+        if np.allclose(xerr[0], xerr[1], rtol, atol):
+            xerr = None if np.isclose(xerr[0], 0).all() else [xerr[0]]
+        i += 1
+
+    if cont.has_yerr:
+        y_range = np.array([[s[0, 1], s[1, 1]] for s in obj[i].get_segments()])
+        yerr = [y_data-y_range[:, 0], y_range[:, 1]-y_data]
+        if np.allclose(yerr[0], yerr[1], rtol, atol):
+            yerr = None if np.allclose(yerr[0], 0, rtol, atol) else [yerr[0]]
+    return xerr, yerr
